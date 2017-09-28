@@ -225,9 +225,9 @@ class FortiOSDriver(NetworkDriver):
     def get_interfaces(self):
         cmd_data = self._execute_command_with_vdom('diagnose hardware deviceinfo nic',
                                                    vdom='global')
-
-        interface_list = [x.replace('\t', '') for x in cmd_data if x.startswith('\t')]
-        interface_statistics = {}
+        cmd_data.pop(0) # Cleaning  "The following NICs are available:"
+        interface_list = [x.strip() for x in cmd_data if x]
+        interface_statistics = {} 
         for interface in interface_list:
             if_data = self._execute_command_with_vdom(
                 'diagnose hardware deviceinfo nic {}'.format(interface), vdom='global')
@@ -248,9 +248,10 @@ class FortiOSDriver(NetworkDriver):
                 parsed_data['last_flapped'] = -1.0
             else:
                 for line in if_data:
+                    parsed_data['dbg'] = line
                     if line.startswith('Admin'):
                         parsed_data['is_enabled'] = line.split(':')[-1] is 'up'
-                    elif line.startswith('PHY Status'):
+                    elif line.startswith('PHY Status') or line.startswith('Link'):
                         parsed_data['is_up'] = line.split(':')[-1] is 'up'
                     elif line.startswith('PHY Speed'):
                         parsed_data['speed'] = int(line.split(':')[-1])
