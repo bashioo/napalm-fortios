@@ -22,6 +22,9 @@ from napalm_base.utils.string_parsers import colon_separated_string_to_dict,\
                                              convert_uptime_string_seconds
 from napalm_base.utils import py23_compat
 
+# STD REGEX PATTERNS
+IP_ADDR_REGEX = r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"
+IPV4_ADDR_REGEX = IP_ADDR_REGEX
 
 class FortiOSDriver(NetworkDriver):
     def __init__(self, hostname, username, password, timeout=60, optional_args=None):
@@ -261,6 +264,40 @@ class FortiOSDriver(NetworkDriver):
                 parsed_data['last_flapped'] = -1.0
             interface_statistics[interface] = parsed_data
         return interface_statistics
+
+    def _dotted_to_dec(self, doted_mask):
+        return sum([bin(int(x)).count('1') for x in doted_mask.split('.')])
+
+    def get_interfaces_ip(self):
+        cmd_data = self._execute_command_with_vdom('get system interface',
+                                                   vdom='global')
+        interfaces_ip_output = {} 
+        
+        INTERNET_ADDRESS = r'ip:\s(?P<ip>{})\s(?P<mask>{})'.format(IPV4_ADDR_REGEX, IPV4_ADDR_REGEX)
+        INTF_NAME = r'name:\s(?P<interface>\w*)\s'
+        
+        for line in cmd_data:
+            
+            if line.startswith('name'):
+
+                m = re.search(INTF_NAME, line)
+                if m:
+                    interface = m.groups()[0]            
+                
+                ipv4 = {}
+                m = re.search(INTERNET_ADDRESS, line)
+                if m:
+                    ip, mask = m.groups()
+
+                    ipv4.update({ip: {"prefix_length": self._dotted_to_dec(mask)}})
+                    
+                    interfaces_ip_output.update({str(interface): {'ipv4': ipv4}})
+                else:
+                    interfaces_ip_output.update({str(interface): {'ipv4': {'0.0.0.0': {'prefox_length': '0'}}}})
+            
+        return interfaces_ip_output
+
+
 
     @staticmethod
     def _search_line_in_lines(search, lines):
