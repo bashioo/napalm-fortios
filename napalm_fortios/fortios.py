@@ -249,14 +249,14 @@ class FortiOSDriver(NetworkDriver):
             else:
                 for line in if_data:
                     parsed_data['dbg'] = line
-                    if line.startswith('Admin'):
-                        parsed_data['is_enabled'] = line.split(':')[-1] is 'up'
+                    if line.startswith('Admin') or line.startswith('State'):
+                        parsed_data['is_enabled'] = 'up' in line
                     elif line.startswith('PHY Status') or line.startswith('Link'):
-                        parsed_data['is_up'] = line.split(':')[-1] is 'up'
-                    elif line.startswith('PHY Speed'):
-                        parsed_data['speed'] = int(line.split(':')[-1])
-                    elif line.startswith('Current_HWaddr'):
-                        parsed_data['mac_address'] = py23_compat.text_type(line.split(' ')[-1])
+                        parsed_data['is_up'] = 'up' in line
+                    elif line.startswith('PHY Speed') or line.startswith('Speed'):
+                        parsed_data['speed'] = line.split()[-1]
+                    elif line.startswith('Current_HWaddr') or line.startswith('Hwaddr'):
+                        parsed_data['mac_address'] = py23_compat.text_type(line.split()[-1])
                 parsed_data['description'] = u''
                 parsed_data['last_flapped'] = -1.0
             interface_statistics[interface] = parsed_data
