@@ -288,15 +288,12 @@ class FortiOSDriver(NetworkDriver):
                 m = re.search(INTERNET_ADDRESS, line)
                 if m:
                     ip, mask = m.groups()
-
                     ipv4.update({ip: {"prefix_length": self._dotted_to_dec(mask)}})
-                    
                     interfaces_ip_output.update({str(interface): {'ipv4': ipv4}})
                 else:
                     interfaces_ip_output.update({str(interface): {'ipv4': {'0.0.0.0': {'prefox_length': '0'}}}})
             
         return interfaces_ip_output
-
 
 
     @staticmethod
@@ -349,6 +346,48 @@ class FortiOSDriver(NetworkDriver):
 
             position = position + 1
         return default_policy
+    
+    
+    def get_ospf_neighbors(self):
+
+        families = ['ipv4', 'ipv6']
+        terms = dict({'accepted_prefixes': 'accepted', 'sent_prefixes': 'announced'})
+        command_sum = 'get router info ospf status'
+        command_neighbor = 'get router info ospf neighbor'
+        #command_detail = 'get router info ospf neighbor {}'
+        peers = dict()
+
+        ospf_sum = self._execute_command_with_vdom(command_sum)
+        re_id = r'ID (?P<ip>{})'.format(IPV4_ADDR_REGEX)
+        
+        if ospf_sum:
+            m = re.search(re_id, ospf_sum[0])
+            if m:
+                router_id = m.groups()[0]
+            else:
+                router_id = "0.0.0.0"
+                
+        ospf_neighbor = self._execute_command_with_vdom(command_neighbor)
+
+        re_neigh = r'(?P<ip>{})(?P<data>.*)'.format(IPV4_ADDR_REGEX)
+        
+        re_state= r'(?P<ip>\w*)/\w*'
+        
+        for line in ospf_neighbor:
+            m = re.match(re_neigh, line)
+            if m:
+                ip, data = m.groups()
+                
+                m = re.search(re_state, data)
+                peers.update({ip: {'state': m.groups()[0]}})
+                
+        
+        return {
+            'global': {
+                'router_id': router_id,
+                'peers': peers
+            }
+        }
 
     def get_bgp_neighbors(self):
 
