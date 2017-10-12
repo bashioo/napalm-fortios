@@ -350,8 +350,6 @@ class FortiOSDriver(NetworkDriver):
     
     def get_ospf_neighbors(self):
 
-        families = ['ipv4', 'ipv6']
-        terms = dict({'accepted_prefixes': 'accepted', 'sent_prefixes': 'announced'})
         command_sum = 'get router info ospf status'
         command_neighbor = 'get router info ospf neighbor'
         #command_detail = 'get router info ospf neighbor {}'
@@ -388,6 +386,8 @@ class FortiOSDriver(NetworkDriver):
                 'peers': peers
             }
         }
+        
+        
 
     def get_bgp_neighbors(self):
 
@@ -461,6 +461,31 @@ class FortiOSDriver(NetworkDriver):
                 'peers': peers
             }
         }
+
+    def get_routes(self):
+        
+        command_sum = 'get router info routing all'
+        
+
+        routes_sum = self._execute_command_with_vdom(command_sum)
+        
+        re_route = r'(?P<prefix>%s/\d\d?) \[(?P<dist>\d{1,10})/(?P<metr>\d{1,10})\] via (?P<gw>%s)' % (IPV4_ADDR_REGEX, IPV4_ADDR_REGEX)
+        re_route_dc = r'(?P<prefix>%s/\d\d?) \[(?P<dist>\d{1,10})/(?P<metr>\d{1,10})\] is directly connected' % (IPV4_ADDR_REGEX)
+        
+        
+        routes = dict()
+        
+        for line in routes_sum:
+            m = re.search(re_route, line)
+            if m:
+                prefix, dist, metr, gw = m.groups()
+                routes.update({prefix: {'distance': dist, 'metric': metr, 'gateway': gw}})
+            m = re.search(re_route_dc, line)
+            if m:
+                prefix, dist, metr = m.groups()
+                routes.update({prefix: {'distance': dist, 'metric': metr, 'gateway': 'none'}})
+        
+        return routes
 
     def get_interfaces_counters(self):
         cmd = self._execute_command_with_vdom('fnsysctl ifconfig', vdom=None)
