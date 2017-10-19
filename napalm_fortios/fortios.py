@@ -224,6 +224,32 @@ class FortiOSDriver(NetworkDriver):
             'speed': None,
             'mac_address': None
         }
+        
+    def get_ipsec(self):
+        cmd_data = self._execute_command_with_vdom('diagnose vpn tunnel list')
+        cmd_data.pop(0) # Cleaning  "list all ipsec tunnel in vd 0"
+  
+        re_tun = r'(?P<rgw>%s)\:\d->(?P<lgw>%s)' % (IPV4_ADDR_REGEX, IPV4_ADDR_REGEX)
+        
+        re_state = r'stat: rxp=(?P<rxp>\d{1,20}) txp=(?P<txp>\d{1,20})'
+        
+        tun = dict()
+        
+        for line in cmd_data:
+            m = re.search(re_tun, line)
+            if m:
+                rgw, lgw = m.groups()
+                tun.update({rgw: {'local_ip': lgw}})
+            
+            m = re.search(re_state, line)
+            if m:
+                rxp, txp = m.groups()
+                if int(rxp) * int(txp) == 0:
+                    tun[rgw]['is_up'] = 'False'
+                else:
+                    tun[rgw]['is_up'] = 'True'
+        return tun
+
 
     def get_interfaces(self):
         cmd_data = self._execute_command_with_vdom('diagnose hardware deviceinfo nic',
@@ -251,7 +277,7 @@ class FortiOSDriver(NetworkDriver):
                 parsed_data['last_flapped'] = -1.0
             else:
                 for line in if_data:
-                    parsed_data['dbg'] = line
+                    #parsed_data['dbg'] = line
                     if line.startswith('Admin') or line.startswith('State'):
                         parsed_data['is_enabled'] = 'up' in line
                     elif line.startswith('PHY Status') or line.startswith('Link'):
@@ -450,7 +476,7 @@ class FortiOSDriver(NetworkDriver):
             peers[neighbor] = neighbor_dict
 
 
-        if "BGP" in bgp_sum[0]:
+        if bgp_sum:
             router_id = py23_compat.text_type(bgp_sum[0].split()[3])
         else: 
             router_id = '0.0.0.0'
