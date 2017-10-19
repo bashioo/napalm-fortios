@@ -475,12 +475,12 @@ class FortiOSDriver(NetworkDriver):
                     neighbor_dict['address_family'][family]['received_prefixes'] = 0
             peers[neighbor] = neighbor_dict
 
-
-        if bgp_sum:
-            router_id = py23_compat.text_type(bgp_sum[0].split()[3])
-        else: 
-            router_id = '0.0.0.0'
+        router_id = '0.0.0.0'
         
+        for line in bgp_sum:
+            if "BGP router identifier" in line:
+                router_id = py23_compat.text_type(line.split()[3])
+            
         return {
             'global': {
                 'router_id': router_id,
