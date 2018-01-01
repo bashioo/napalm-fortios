@@ -314,10 +314,10 @@ class FortiOSDriver(NetworkDriver):
                 m = re.search(INTERNET_ADDRESS, line)
                 if m:
                     ip, mask = m.groups()
+                    # only process nonzero IP addresses
+                    if ip == '0.0.0.0': continue
                     ipv4.update({ip: {"prefix_length": self._dotted_to_dec(mask)}})
                     interfaces_ip_output.update({str(interface): {'ipv4': ipv4}})
-                else:
-                    interfaces_ip_output.update({str(interface): {'ipv4': {'0.0.0.0': {'prefox_length': '0'}}}})
             
         return interfaces_ip_output
 
