@@ -299,25 +299,18 @@ class FortiOSDriver(NetworkDriver):
                                                    vdom='global')
         interfaces_ip_output = {} 
         
-        INTERNET_ADDRESS = r'ip:\s(?P<ip>{})\s(?P<mask>{})'.format(IPV4_ADDR_REGEX, IPV4_ADDR_REGEX)
-        INTF_NAME = r'name:\s(?P<interface>\w*)\s'
-        
         for line in cmd_data:
-            
-            if line.startswith('name'):
-
-                m = re.search(INTF_NAME, line)
-                if m:
-                    interface = m.groups()[0]            
-                
-                ipv4 = {}
-                m = re.search(INTERNET_ADDRESS, line)
-                if m:
-                    ip, mask = m.groups()
-                    # only process nonzero IP addresses
-                    if ip == '0.0.0.0': continue
-                    ipv4.update({ip: {"prefix_length": self._dotted_to_dec(mask)}})
-                    interfaces_ip_output.update({str(interface): {'ipv4': ipv4}})
+            # find all "KEY: VALUE" assuming VALUE can contain any number of single spaces between words
+            d = dict(re.findall('([\w-]+):\s((?:\s??[\w\.-]+)+)', line))
+            # skip emply dictionaries
+            if not d: continue
+            # skip interfaces without IP address
+            if not 'ip' in d: continue
+            # skip interfaces with unset IP addresses
+            if d['ip'] != '0.0.0.0 0.0.0.0':
+                ip, mask = re.split(' ', d['ip'])
+                prefixlen = self._dotted_to_dec(mask)
+                interfaces_ip_output[d['name']] = {'ipv4' : {ip : {'prefix_length': prefixlen}}}
             
         return interfaces_ip_output
 
